@@ -39,9 +39,9 @@ class AppSettings(object):
         return getattr(settings, 'BACKOFF_MULTIPLIER', 4)
 
     @property
-    def BACKGROUND_TASK_BACKOFF_MULTIPLIER(self):
-        """Backoff multiplier for retries."""
-        return self.BACKOFF_MULTIPLIER
+    def BACKGROUND_TASK_MAX_SLEEP_TIME(self):
+        """Maximum possible sleep time between of task attempts."""
+        return getattr(settings, 'BACKGROUND_TASK_MAX_SLEEP_TIME', 0)
 
     @property
     def BACKGROUND_TASK_RUN_ASYNC(self):
