@@ -146,6 +146,14 @@ class Task(models.Model):
 
     # Repeat choices are encoded as number of seconds
     # The repeat implementation is based on this encoding
+    EVERY_TEN_SECONDS = 10
+    EVERY_FIVE_SECONDS = 5
+    EVERY_TWO_SECONDS = 2
+    EVERY_HALF_MINUTE = 30
+    EVERY_MINUTE = 60
+    EVERY_3_MINUTES = EVERY_MINUTE * 3
+    EVERY_5_MINUTES = EVERY_MINUTE * 5
+    EVERY_10_MINUTES = EVERY_MINUTE * 10
     HOURLY = 3600
     DAILY = 24 * HOURLY
     WEEKLY = 7 * DAILY
@@ -153,9 +161,17 @@ class Task(models.Model):
     EVERY_4_WEEKS = 4 * WEEKLY
     NEVER = 0
     REPEAT_CHOICES = (
-        (HOURLY, 'hourly'),
-        (DAILY, 'daily'),
-        (WEEKLY, 'weekly'),
+        (EVERY_TWO_SECONDS, 'every 2 seconds'),
+        (EVERY_FIVE_SECONDS, 'every 5 seconds'),
+        (EVERY_TEN_SECONDS, 'every 10 seconds'),
+        (EVERY_HALF_MINUTE, 'every 30 seconds'),
+        (EVERY_MINUTE, 'every 1 minute'),
+        (EVERY_3_MINUTES, 'every 3 minutes'),
+        (EVERY_5_MINUTES, 'every 5 minutes'),
+        (EVERY_10_MINUTES, 'every 10 minutes'),
+        (HOURLY, 'every hour'),
+        (DAILY, 'every day'),
+        (WEEKLY, 'every week'),
         (EVERY_2_WEEKS, 'every 2 weeks'),
         (EVERY_4_WEEKS, 'every 4 weeks'),
         (NEVER, 'never'),
@@ -254,15 +270,21 @@ class Task(models.Model):
             task_failed.send(sender=self.__class__, task_id=self.id, completed_task=completed)
             self.delete()
         else:
-            backoff_multiplier = app_settings.BACKGROUND_TASK_BACKOFF_MULTIPLIER
-            backoff = timedelta(seconds=int(self.attempts ** backoff_multiplier) + 5)
+            backoff = self._get_backoff_timedelta()
             self.run_at = timezone.now() + backoff
             logger.warning('Rescheduling task %s for %s later at %s\n', self,
-                backoff, self.run_at)
+                           backoff, self.run_at)
             task_rescheduled.send(sender=self.__class__, task=self)
             self.locked_by = None
             self.locked_at = None
             self.save()
+
+    def _get_backoff_timedelta(self):
+        sleep_time_seconds = (self.attempts ** 4) + 5
+        max_sleep_time = app_settings.BACKGROUND_TASK_MAX_SLEEP_TIME
+        if max_sleep_time > 0:
+            sleep_time_seconds = min(sleep_time_seconds, max_sleep_time)
+        return timedelta(seconds=sleep_time_seconds)
 
     def create_completed_task(self):
         '''

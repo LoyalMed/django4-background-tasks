@@ -306,17 +306,26 @@ def autodiscover():
     """
     Autodiscover tasks.py files in much the same way as admin app
     """
-    import imp
     from django.conf import settings
+    from django.utils.module_loading import import_module
+    from django.apps import apps
+
+    installed_apps = settings.INSTALLED_APPS.copy()
+    if 'report_builder' in installed_apps:
+        installed_apps.remove('report_builder')
 
     for app_config in apps.get_app_configs():
+        if app_config.name not in installed_apps:
+            continue
+
         try:
             app_path = import_module(app_config.name).__path__
         except (AttributeError, ImportError):
             continue
         try:
-            imp.find_module('tasks', app_path)
+            import importlib.util
+            spec = importlib.util.find_spec('.tasks', package=app_config.name)
+            if spec is not None:
+                import_module("%s.tasks" % app_config.name)
         except ImportError:
             continue
-
-        import_module("%s.tasks" % app_config.name)
