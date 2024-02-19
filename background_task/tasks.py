@@ -108,6 +108,8 @@ class Tasks(object):
             _name = name
             if not _name:
                 _name = '%s.%s' % (fn.__module__, fn.__name__)
+            if Task.objects.filter(verbose_name=_name).exists():
+                raise ValueError(f"Task with verbose_name '{_name}' already exists")
             proxy = self._task_proxy_class(_name, fn, schedule, queue,
                                            remove_existing_tasks, self._runner)
             self._tasks[_name] = proxy
